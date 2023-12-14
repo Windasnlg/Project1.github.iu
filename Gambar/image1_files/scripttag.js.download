@@ -1,0 +1,927 @@
+function formatRupiah(angka, prefix){
+	var number_string = String(angka).replace(/[^,\d]/g, '').toString(),
+	split   		= number_string.split(','),
+	sisa     		= split[0].length % 3,
+	rupiah     		= split[0].substr(0, sisa),
+	ribuan     		= split[0].substr(sisa).match(/\d{3}/gi);
+
+	// tambahkan titik jika yang di input sudah menjadi angka ribuan
+	if(ribuan){
+		separator = sisa ? '.' : '';
+		rupiah += separator + ribuan.join('.');
+	}
+
+	rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
+	return rupiah
+}
+
+const getTotalPrice = () => {
+    let shipping_price = $('input[name="shipping_method"]:checked').attr('data-price'),
+        taxes = parseFloat($('#id_taxes').text().replace("Rp", ""))
+
+    if (!isNaN(parseInt($('#id_shipping').text().replaceAll(".", "").replace("Rp", "")))) {
+      shipping_price = parseFloat($('#id_shipping').text().replaceAll(".", "").replace("Rp", ""))
+    }
+    else{
+      shipping_price = 0
+    }
+
+    if (!isNaN(parseInt($('#id_taxes').text().replaceAll(".", "").replace("Rp", "")))) {
+      taxes = parseFloat($('#id_taxes').text().replaceAll(".", "").replace("Rp", ""))
+    }
+    else{
+      taxes = 0
+    }
+
+    console.log({shipping_price, taxes});
+
+    let subtotal = parseFloat($('#id_subtotal').text().replaceAll(".","").replace("Rp", ""))
+
+    let totalnapisan = parseFloat(shipping_price + subtotal + taxes)
+
+    return formatRupiah(totalnapisan)
+}
+
+const getSubtotalPrice = () => {
+    let subtotal_price = 0
+
+    $('tr[data-price]').each(function(i, v) {
+      subtotal_price += parseFloat($(this).attr('data-price').replace('.', ''))
+    })
+
+    subtotal_price = subtotal_price.toString()
+
+    return formatRupiah(subtotal_price)
+}
+
+if (window.location.href.includes('/pages/track-order')) {
+  console.log('ini script tags di track order');
+  let container = $('#bdd_track_order')
+
+  // $(container).empty()
+
+  let form_html = `
+      <style>
+        .form{
+          display: flex;
+          flex-direction: column;
+          padding: 0 10em;
+        }
+        .form * {
+          margin: 1em 0;
+        }
+
+        .form .button-submit{
+          background-color: black;
+          color: white;
+          border: none;
+          padding: 1em;
+          text-transform: uppercase;
+          font-weight: bold;
+          border: 1px solid black;
+          transition: all .3s cubic-bezier(.67,.76,.85,.47)
+        }
+
+        .form .button-submit:hover{
+          background-color: white;
+          color: black;
+        }
+
+        .hasil .status_deliv{
+          text-align: center;
+          text-transform: uppercase;
+        }
+
+        .track .track__title{
+          text-align: center;
+        }
+
+        .lds-ring {
+          display: inline-block;
+          position: relative;
+          width: 80px;
+          height: 80px;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+        .lds-ring div {
+          box-sizing: border-box;
+          display: block;
+          position: absolute;
+          width: 64px;
+          height: 64px;
+          margin: 8px;
+          border: 8px solid #fff;
+          border-radius: 50%;
+          animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+          border-color: black transparent transparent transparent;
+        }
+        .lds-ring div:nth-child(1) {
+          animation-delay: -0.45s;
+        }
+        .lds-ring div:nth-child(2) {
+          animation-delay: -0.3s;
+        }
+        .lds-ring div:nth-child(3) {
+          animation-delay: -0.15s;
+        }
+        @keyframes lds-ring {
+          0% {
+            transform: rotate(0deg);
+          }
+          100% {
+            transform: rotate(360deg);
+          }
+        }
+
+        @media screen and (max-width: 780px){
+          .form{
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+          }
+        }
+      </style>
+      <div class="track">
+        <!-- <h1 class="track__title">Track Order</h1> -->
+        <div class="form">
+          <input type="text" name="order_number" placeholder="Input Order Number" required />
+          <input type="email" name="email" placeholder="Input Email Adress" required />
+          <button class="button-submit">Track My Order</button>
+        </div>
+        <div class="hasil" id="hasil">
+        </div>
+      </div>
+  `
+
+  $(container).append(form_html)
+
+  let store_url = window.location.href;
+  let patt = /^(?:https?:\/\/)?(?:[^@\/\n]+@)?(?:www\.)?([^:\/?\n]+)/igm;
+  store_url = store_url.match(patt)[0].replace("https://", "").replace("http://", "");
+
+  $('.button-submit').click(function(){
+    let data = {
+      order_number: $('input[name="order_number"]').val(),
+      email: $('input[name="email"]').val()
+    }
+
+    $.ajax(
+      {
+        url: `https://sicepat-hmns.shopify-plugin.devbdd.com/index.php/tracking?shop=${store_url}`,
+        type: 'POST',
+        data: data,
+        beforeSend: (() => {
+          $('#hasil').empty()
+          $('#hasil').append(`<div class="lds-ring" id="loder"><div></div><div></div><div></div><div></div></div>`)
+        }),
+        success: ((data) => {
+          $('#hasil').empty()
+
+          let response = JSON.parse(data)
+
+          console.log({response});
+
+          if (response['sicepat']['status']['code'] == 200 && response['sicepat']['status']['description'] == "OK") {
+
+            let result = response['sicepat']['result']
+
+            let status_html = `
+              <hr>
+              <h2 class="status_deliv">${result['track_history'][result['track_history'].length - 1]['status']}</h2>
+            `
+
+            $('#hasil').append(status_html)
+
+            let info_html = `
+              <table class="info">
+                <tr>
+                  <td>
+                    Reciever Name
+                  </td>
+                  <td>
+                    ${result['receiver_name']}
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Reciever Address
+                  </td>
+                  <td>
+                    ${result['receiver_address']}
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Service
+                  </td>
+                  <td>
+                    ${result['service']}
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Waybill Number
+                  </td>
+                  <td>
+                    ${result['waybill_number']}
+                  </td>
+                </tr>
+              </table>
+            `
+
+            $('#hasil').append(info_html)
+
+            let isi_table_history = []
+            result['track_history'].forEach((item) => {
+              isi_table_history.push(
+                `
+                  <tr>
+                    <td>
+                      ${item['date_time']}
+                    </td>
+                    <td>
+                      ${item['city'] ? item['city'] : item['receiver_name']}
+                    </td>
+                  </tr>
+                `
+              )
+            });
+
+
+            let history_html = `
+              <table class="history">
+                <tr>
+                  <th>
+                    Date
+                  </th>
+                  <th>
+                    Status
+                  </th>
+                </tr>
+                ${isi_table_history.join("\n")}
+              </table>
+            `
+
+            $('#hasil').append(history_html)
+          }
+          else {
+            let status_html = `
+              <hr>
+              <h2 class="status_deliv">Order Anda belum dapat terlacak</h2>
+            `
+
+            $('#hasil').append(status_html)
+          }
+        })
+      }
+    )
+  })
+}
+else if (window.location.href.includes('pages/cod')) {
+    console.log("cod")
+    let custom_checkout_html = `
+		<style>
+		.lds-ring {
+		  display: inline-block;
+		  position: relative;
+		  width: 31.25px;
+		  height: 31.25px;
+		}
+		.lds-ring div {
+		  box-sizing: border-box;
+		  display: block;
+		  position: absolute;
+		  width: 25px;
+		  height: 25px;
+		  margin: 3px;
+		  border: 3px solid #fff;
+		  border-radius: 50%;
+		  animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+		  border-color: #fff transparent transparent transparent;
+		}
+		.lds-ring div:nth-child(1) {
+		  animation-delay: -0.45s;
+		}
+		.lds-ring div:nth-child(2) {
+		  animation-delay: -0.3s;
+		}
+		.lds-ring div:nth-child(3) {
+		  animation-delay: -0.15s;
+		}
+		@keyframes lds-ring {
+		  0% {
+		    transform: rotate(0deg);
+		  }
+		  100% {
+		    transform: rotate(360deg);
+		  }
+		}
+		</style>
+    <div class="container">
+        <div class="content">
+            <div class="py-4">
+                <div class="container py-2">
+                    <div class="align-items-center">
+                        <div class="text-center">
+                            <h1 class="mb-3 img-logo">
+                                <a href="/">
+                                    <img src="https://cdn.shopify.com/s/files/1/0517/3071/0707/files/logo_trans_small_46418a31-3b34-41b9-8359-cca39853b9e8.png?v=1614857579" style="width: 200px;">
+                                    </a>
+                                </h1>
+                                <h5 class="op-7 mb-3">Checkout page for COD. Back to
+                                <a class="text-primary" href="/cart">cart</a>
+                                </h5>
+                            </div>
+                        </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-7">
+                    <div class="row px-4">
+                        <div class="col-md-12 card p-3">
+                            <div class="form-group">
+                                <label class="control-label">Delivery method</label>
+                            </div>
+                            <div
+                                class="radio"
+                                style="border-radius: .25rem; border: 1px solid #ebedf2;">
+                                <input type="radio" name="radioship" id="radio_ship" checked>
+                                <label for="radio_ship">COD</label>
+                            </div>
+                        </div>
+                        <div class="col-md-12 card p-3">
+                            <div class="form" method="post" action="" id="bdd-checkout-form">
+                                <div class="form-group">
+                                    <label class="control-label">Email</label>
+                                    <input type="email" name="email" class="form-control" placeholder="your email address" required="required" id="email_customer">
+                                </div>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="control-label">First Name</label>
+                                            <input type="text" name="first_name" class="form-control" required="required">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="control-label">Last Name</label>
+                                            <input type="text" name="last_name" class="form-control" required="required">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label">Address</label>
+                                    <input type="text" name="alamat" class="form-control" required="required">
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label">City</label>
+                                    <input type="text" name="kota" class="form-control" required="required">
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label">Kecamatan</label>
+                                    <input type="text" name="district" class="form-control" required="required">
+                                </div>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="control-label">State</label>
+                                            <input type="text" name="provinsi_na" class="form-control d-none" value="" required="required" >
+                                            <select class="form-control" name="kode_provinsi" required="required">
+                                                <option value="#">-- Choose state --</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="control-label">Postal Code</label>
+                                            <input type="text" name="kode_pos" class="form-control" required="required">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label">Phone</label>
+                                    <input type="number" name="ponsel" class="form-control" required="required">
+                                </div>
+                                <input type="hidden" name="url_shopify" value="visval-id.myshopify.com">
+                                <div class="form-group" id="cek_pengiriman">
+                                    <button class="btn btn-info" type="submit" id="gt_payment">Continue to Payment</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-12 card p-3" id="bagian_shipping" style="display: none;">
+                            <div class="form-group">
+                                <label class="control-label">Shipping method</label>
+                            </div>
+                            <div class="radio" style="border-radius: .25rem; border: 1px solid #ebedf2;" id="sipingmetod">
+
+                            </div>
+                        </div>
+                        <div class="col-md-12" id="payment" style="display: none;">
+                            <button class="btn btn-primary w-100 text-white">Submit Payment</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card py-3 px-4">
+                                <div class="" id="produkna"></div>
+                                    <!--
+                                    <form class="form pt-4" method="post" action="https://bdd.services/visval_jx/config/cek_diskon" id="bdd-checkout-diskon">
+                                        <input type="hidden" name="produk_get2" class="produk_get2">
+                                        <input type="hidden" name="total_harga" value="130213" class="totalna">
+                                        <div class="form-group px-0">
+                                            <label class="control-label">Kode Diskon</label>
+                                            <div class="ada-bundling">
+                                                <input type="text" name="kode_diskon" class="form-control" placeholder="Kode Diskon" required="required">
+                                            </div>
+                                        </div>
+                                        <div class="form-group px-0">
+                                            <button class="btn btn-info" type="submit">Discount Code</button>
+                                        </div>
+                                    </form>
+                                    -->
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="card py-3 px-4">
+                                <div class="" id="total_section">
+                                  <div class="subtotal">
+                                    <p><b>Subtotal</b></p>
+                                    <p id="id_subtotal">Rp</p>
+                                  </div>
+                                  <div class="shipping_perais">
+                                    <p><b>Shipping</b></p>
+                                    <p id="id_shipping">Calculated at next step</p>
+                                  </div>
+                                  <div class="tax">
+                                    <p><b>COD Fee</b></p>
+                                    <p id="id_taxes">Calculated at next step</p>
+                                  </div>
+                                  <hr>
+                                  <div class="total">
+                                    <p><b>Total</b></p>
+                                    <p id="id_total">Rp0</p>
+                                  </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    `
+    $('#bdd-checkout').append(custom_checkout_html)
+
+    $("input[name=ponsel]").on("focus", function() {
+      $(this).on("keydown", function(event) {
+        if (event.keyCode === 38 || event.keyCode === 40) {
+          event.preventDefault();
+        }
+      });
+    });
+
+    $.ajax({
+      url: `https://sicepat-hmns.shopify-plugin.devbdd.com/index.php/rest/get_province`, // point to server-side PHP script
+      type: 'get',
+      success: ((d) => {
+        let state = JSON.parse(d)
+				console.log({state});
+        state.forEach((item) => {
+          $('select[name="kode_provinsi"]').append(
+            `
+              <option value="${item.code}">${item.name}</option>
+            `
+          )
+        });
+
+      })
+
+    })
+
+    $('#gt_payment').click(function() {
+      if (
+        $('#email_customer').val().trim() != '' &&
+        $('input[name="first_name"]').val().trim() != '' &&
+        $('input[name="last_name"]').val().trim() != '' &&
+        $('input[name="alamat"]').val().trim() != '' &&
+        $('input[name="kota"]').val().trim() != '' &&
+        $('select[name="kode_provinsi"]').val() != '#' &&
+        $('input[name="kode_pos"]').val().trim() != '' &&
+        $('input[name="ponsel"]').val().trim() != '' && $('input[name="district"]').val().trim() != ''
+      ) {
+        let kart = jQuery.getJSON('/cart.js');
+        kart.done(() => {
+          kart = kart.responseJSON
+          let line_items = kart.items,
+          postal = $('input[name="kode_pos"]').val().trim(),
+          city = $('input[name="kota"]').val().trim(),
+          district = $('input[name="district"]').val().trim(),
+					state = $('select[name="kode_provinsi"]').val()
+
+          let forem = {
+            line_items,
+            postal,
+            city,
+            district,
+						state
+          }
+
+          $.ajax({
+            url: `https://sicepat-hmns.shopify-plugin.devbdd.com/index.php/cod/rate?shop=mario-minardi.myshopify.com`,
+            data: forem,
+            type: 'post',
+            beforeSend: (() => {
+              $('#gt_payment').text('PLEASE WAIT ...')
+              $('#gt_payment').attr('disabled', 'disabled')
+              $('#id_shipping').text('Calculating ...')
+              $('#id_taxes').text('Calculating ...')
+							$('.alert.alert-danger').remove()
+            }),
+            error: (() => {
+              console.log('error dude');
+              $('#gt_payment').text('CONTINUE TO PAYMENT')
+              $('#gt_payment').removeAttr('disabled')
+
+              $('#bdd-checkout-form').prepend(
+                `
+                <div class="alert alert-danger" role="alert">
+                <strong>Terjadi kesalahan cobalah beberapa saat lagi</strong>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+                </button>
+                </div>
+                `
+              )
+              // $('input[name="kode_pos"]').css('border', '1px solid red')
+
+              document.body.scrollTop = 0;
+              document.documentElement.scrollTop = 0;
+            }),
+            success: (d => {
+              $('#gt_payment').text('CONTINUE TO PAYMENT')
+              $('#gt_payment').removeAttr('disabled')
+							// console.log(d);
+              let rates = d
+              // console.log('ini cara baru guw', JSON.parse(d));
+              // try {
+              //   rates = JSON.parse(d)
+              // } catch (e) {
+              //   $('#gt_payment').text('CONTINUE TO PAYMENT')
+              //   $('#gt_payment').removeAttr('disabled')
+							//
+              //   if (!$('#radio_pick_up').is(':checked')) {
+              //     $('#bdd-checkout-form').prepend(
+              //       `
+              //       <div class="alert alert-danger" role="alert">
+              //       <strong>Change your postal code</strong>
+              //       <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              //       <span aria-hidden="true">&times;</span>
+              //       </button>
+              //       </div>
+              //       `
+              //     )
+              //     $('input[name="kode_pos"]').css('border', '1px solid red')
+							//
+              //     document.body.scrollTop = 0;
+              //     document.documentElement.scrollTop = 0;
+              //   } else {
+              //     $('#payment').show()
+              //   }
+              // }
+
+              // rates = JSON.parse(d)
+              console.log('data', rates);
+
+							let tariff = rates['rates'].sort((a,b) => (a.total_price - b.total_price))
+
+              let tambahan = []
+              tariff.forEach((rate, idx) => {
+                let price = rate.total_price / 100
+								price = price.toString()
+
+                let siping_html
+                if (idx == 0) {
+                  siping_html = `
+                  <div class="siping">
+                  <input type="radio" name="shipping_method" id="shipping_method_${idx}" data-price="${price}" data-shipping-code="${rate.service_code}" data-shipping-title="${rate.service_name}" checked>
+                  <label for="shipping_method_${idx}">
+                  <div class="pick-top">
+                  <small><b>${rate.service_name}</b></small>
+                  <small><b>Rp${formatRupiah(price)}</b></small>
+                  </div>
+                  <div class="pick-bottom">
+                  <small>${rate.description}</small>
+                  </div>
+                  </label>
+                  </div>
+                  `
+                } else {
+                  siping_html = `
+                  <div class="siping">
+                  <input type="radio" name="shipping_method" id="shipping_method_${idx}" data-price="${price}" data-shipping-code="${rate.service_code}" data-shipping-title="${rate.service_name}">
+                  <label for="shipping_method_${idx}">
+                  <div class="pick-top">
+                  <small><b>${rate.service_name}</b></small>
+                  <small><b>Rp${formatRupiah(price)}</b></small>
+                  </div>
+                  <div class="pick-bottom">
+                  <small>${rate.description}</small>
+                  </div>
+                  </label>
+                  </div>
+                  `
+                }
+                tambahan.push(siping_html)
+              });
+
+              $('#sipingmetod').html(tambahan.join("\n"))
+
+              let subtotal = parseFloat($('#id_subtotal').text().replaceAll(".","").replace("Rp", ""))
+
+              $('input[name="shipping_method"]').change(function (){
+                let shipping_price = $(this).attr('data-price')
+                $('#id_shipping').text(`Rp${formatRupiah(shipping_price)}`)
+
+                let taxes = (subtotal + parseFloat(shipping_price)) * 0.03
+                taxes = Math.ceil(taxes / 100) * 100
+                $("#id_taxes").text(`Rp${formatRupiah(parseFloat(taxes))}`)
+
+                let total_price = getTotalPrice()
+                $('#id_total').text(`Rp${total_price}`)
+              })
+
+              if ($('#radio_ship').is(':checked')) {
+                $('#bagian_shipping').show()
+              }
+
+              $('.siping .pick-bottom small').each(function(i, v) {
+                if ($(this).text().trim().toLowerCase() == 'undefined') {
+                  $(this).parent().hide()
+                }
+              })
+
+
+              if ($('#radio_ship').is(':checked')) {
+                let shipping_price = $('input[name="shipping_method"]:checked').attr('data-price')
+                $('#id_shipping').text(`Rp${formatRupiah(shipping_price)}`)
+
+                let taxes = (subtotal + parseFloat(shipping_price)) * 0.03
+                taxes = Math.ceil(taxes / 100) * 100
+                $("#id_taxes").text(`Rp${formatRupiah(parseFloat(taxes))}`)
+
+                let total_price = getTotalPrice()
+                $('#id_total').text(`Rp${total_price}`)
+              }
+              else{
+                $('#id_shipping').text(`Rp0`)
+              }
+
+              $('#payment').show()
+            })
+          })
+        })
+      }
+      else{
+        $('#bdd-checkout-form').prepend(
+              `
+          <div class="alert alert-danger" role="alert">
+          <strong>Lengkapi Data Anda Terlebih Dahulu</strong>
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+          </button>
+          </div>
+          `
+        )
+
+        document.body.scrollTop = 0;
+        document.documentElement.scrollTop = 0;
+      }
+    })
+
+    // function radio delivery method
+    if ($('#radio_pick_up').is(':checked')) {
+      $('#pikap').show()
+    }
+    //
+
+    let cart = jQuery.getJSON('/cart.js');
+    cart.done(() => {
+        cart = cart.responseJSON
+        let cart_items = cart.items
+
+        console.log(cart_items);
+
+        items = cart_items.map((v) => {
+        let price = v.price * v.quantity,
+            kuantiti = v.quantity
+
+        console.log({
+          price
+        });
+
+        price = price.toString()
+
+        let cent = price.slice(-2)
+
+        price = `${price.slice(0, -2)}`
+        return {
+          id: v.id,
+          product_id: v.product_id,
+          title: v.title,
+          quantity: kuantiti,
+          image: v.image,
+          price
+        }
+      })
+
+        console.log({
+            items
+        });
+
+        items.forEach((v) => {
+        let {
+          id,
+          product_id,
+          title,
+          quantity,
+          image,
+          price
+        } = v
+
+        let table_prodak = `
+                    <table class="product-table w-100">
+                        <tbody data-order-summary-section="line-items">
+                            <tr class="product" data-product-id="${product_id}" data-variant-id="${id}" data-product-type="" data-customer-ready-visible="" data-price="${price}">
+                                <td class="product__image">
+                                    <div class="product-thumbnail ">
+                                        <div class="product-thumbnail__wrapper">
+                                            <img alt="" class="product-thumbnail__image" src="${image}">
+                                        </div>
+                                        <span class="product-thumbnail__quantity" aria-hidden="true">${quantity}</span>
+                                    </div>
+                                </td>
+                                <th class="product__description" scope="row">
+                                    <span class="product__description__name order-summary__emphasis">${title}</span>
+                                </th>
+                                <td class="product__price">
+                                    <b class="order-summary__emphasis skeleton-while-loading ">Rp${formatRupiah(price)}</b>
+                                    <b class="order-summary__emphasis skeleton-while-loading hide">$ undefined</b>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `
+
+        $('#produkna').append(table_prodak)
+      })
+
+        let subtotal_price = getSubtotalPrice()
+
+        $('#id_subtotal').text(`Rp${subtotal_price}`)
+
+        let total_price = getTotalPrice()
+
+        $('#id_total').text(`Rp${total_price}`)
+    })
+
+    $('#payment button').click(function(event) {
+          let email_customer = $('#email_customer').val().trim(),
+            total_price = getTotalPrice(),
+            first_name = $('input[name="first_name"]').val().trim(),
+            last_name = $('input[name="last_name"]').val().trim(),
+            address = $('input[name="alamat"]').val().trim(),
+            city = $('input[name="kota"]').val().trim(),
+            district = $('input[name="district"]').val().trim(),
+            zip = $('input[name="kode_pos"]').val().trim(),
+            phone = $('input[name="ponsel"]').val().trim(),
+            state = $('select[name="kode_provinsi"]').val(),
+						state_name = $('select[name="kode_provinsi"]').text(),
+            taxes =  $("#id_taxes").text().replaceAll(".", "").replace("Rp",""),
+            ongkir = 0,
+            shipping_code,
+            shipping_title
+
+
+            total_price = parseInt(String(total_price).replace("Rp", ""))
+
+            ongkir = $('input[data-price]:checked').attr('data-price')
+
+            shipping_code = $('input[data-price]:checked').attr('data-shipping-code')
+
+            shipping_title = $('input[data-price]:checked').attr('data-shipping-title')
+
+            event.preventDefault();
+
+            let keranjang = jQuery.getJSON('/cart.js');
+              keranjang.done(() => {
+                keranjang = keranjang.responseJSON
+                let semua_items = keranjang.items
+
+                semua_items = semua_items.map((v) => {
+                  let properti = {}
+                  for (prop in v.properties) {
+                    if (prop == "Start" || prop == "End") {
+                      properti[`${prop}`] = v.properties[`${prop}`]
+                    }
+                  }
+                  return {
+                    title: v.title,
+                    variant_id: v.variant_id,
+                    quantity: v.quantity,
+                    properties: properti,
+                    grams: v.grams,
+                    product_id: v.product_id,
+										price: (v.quantity * v.price) / 100
+                  }
+                })
+                // console.log(semua_items);
+
+                let porm_data = {
+                  email_customer,
+                  first_name,
+                  last_name,
+                  address,
+                  city,
+									district,
+                  zip,
+                  phone,
+                  state,
+									state_name,
+                  shipping_code,
+                  shipping_title,
+                  line_items: semua_items,
+                  ongkir,
+                  taxes
+                }
+
+                console.log({
+                  porm_data
+                });
+
+                $.ajax({
+                  url: 'https://sicepat-hmns.shopify-plugin.devbdd.com/index.php/cod/createOrder?shop=mario-minardi.myshopify.com', // point to server-side PHP script
+                  // dataType: 'json', // what to expect back from the PHP script, if anything
+                  // cache: false,
+                  // contentType: false,
+                  // processData: false,
+                  data: porm_data,
+                  type: 'post',
+                  beforeSend: (() => {
+                    $('#payment button').empty().append('<div class="lds-ring"><div></div><div></div><div></div><div></div></div>')
+                    $('#payment button').attr('disabled', 'disabled')
+                  }),
+                  success: ((dr) => {
+                    console.log('dr', JSON.parse(dr));
+                    dr = JSON.parse(dr)
+                    // console.log(dr);
+
+                    if (dr.errors) {
+                      if (dr.errors.customer) {
+                        if (dr.errors.customer.includes("Email is invalid")) {
+                          $('#bdd-checkout-form').prepend(
+                            `
+                            <div class="alert alert-danger" role="alert">
+                            <strong>Email is invalid</strong>
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                            </button>
+                            </div>
+                            `
+                          )
+                          $('input[name="email"]').css('border', '1px solid red')
+                        }
+                      }
+											else if (dr.errors.line_items) {
+												dr.errors.line_items.forEach((item, i) => {
+													$('#bdd-checkout-form').prepend(
+                            `
+                            <div class="alert alert-danger" role="alert">
+                            <strong>${item}</strong>
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                            </button>
+                            </div>
+                            `
+                          )
+												});
+											}
+											else if (typeof dr.errors === 'string') {
+												if (dr.errors.toLowerCase().includes('exceed')) {
+													console.log('rate limit');
+												}
+											}
+
+											$('#payment button').empty().html('SUBMIT PAYMENT')
+											$('#payment button').removeAttr('disabled')
+
+											document.body.scrollTop = 0;
+											document.documentElement.scrollTop = 0;
+                    }
+										else{
+											location.replace(dr.order.order_status_url)
+										}
+
+                  })
+                })
+              })
+    })
+}

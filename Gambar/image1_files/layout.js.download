@@ -1,0 +1,151 @@
+/** Shopify CDN: Minification failed
+
+Line 18:2 Transforming let to the configured target environment ("es5") is not supported yet
+Line 19:2 Transforming let to the configured target environment ("es5") is not supported yet
+Line 32:4 Transforming let to the configured target environment ("es5") is not supported yet
+Line 51:6 Transforming const to the configured target environment ("es5") is not supported yet
+Line 52:6 Transforming const to the configured target environment ("es5") is not supported yet
+Line 53:6 Transforming const to the configured target environment ("es5") is not supported yet
+Line 66:6 Transforming let to the configured target environment ("es5") is not supported yet
+Line 75:6 Transforming let to the configured target environment ("es5") is not supported yet
+Line 80:8 Transforming let to the configured target environment ("es5") is not supported yet
+Line 81:8 Transforming let to the configured target environment ("es5") is not supported yet
+... and 1 more hidden warnings
+
+**/
+$(document).ready(function() {
+	$(".btn-toggle-menu").click(function(){
+		let wheight = $( window ).height() - $("#shopify-section-header").height();
+		let paddingnav = $("#shopify-section-header").height();
+		$("body").toggleClass("no-scroll")
+		$("[data-section-id=header]").toggleClass("menunav-opened");
+		$(".menunav-custom").toggleClass("nav-active");
+		$(".site-header").toggleClass("header-transparent");
+		$(".nav-wrapper").css("max-height", wheight + "px");
+		$(".menunav-custom").css("padding-top", paddingnav + "px" )
+    $(".text-toggle").toggleClass("hide");
+    $(".icon-toggle").toggleClass("hide");
+    $(".login-cart").toggleClass("hide")
+	})
+
+  if($(".template-product").length){
+    let formproduct = $(".product-form").outerHeight();
+    console.log(formproduct)
+    $(".site-footer").css("margin-bottom", formproduct+"px");
+  }
+
+	$(".site-nav--has-dropdown").click(function() {
+		$(this).toggleClass("site-nav--active-dropdown")
+	})
+
+    $('.slideshow-owl').owlCarousel({
+        loop: true,
+        nav: true,
+        dots: true,
+        items: 1,
+        navText: ['PREV', 'NEXT'],
+        onInitialized : appendOwlNavDivider,
+    });
+
+    function appendOwlNavDivider(event) {
+      const slider = $(event.target);
+      const navPrev = slider.find('.owl-nav .owl-prev');
+      const divider = '<div class="nav-divider"></div>';
+
+      navPrev.after(divider);
+    }
+
+    $('.slider-product-owl').owlCarousel({
+        loop: false,
+        nav: false,
+        dots: true,
+        items: 1
+    });
+
+    $('button.js-mobile-nav-toggle').click(function() {
+      let header = $('header.site-header');
+      if ($(this).hasClass('mobile-nav--open')) {
+        header.addClass('nav--open');
+      } else {
+        header.removeClass('nav--open');
+      }
+    });
+
+    if($(".template-index").length){
+      let heightHead = $("#shopify-section-header").height() + 1;
+		  $(".page-container").css("margin-top", "-" + heightHead + "px");
+		// $(".page-container").css("margin-top", "0px");
+
+      $(window).scroll(function() {    
+        let scroll = $(window).scrollTop();
+        let header = $('header.site-header');
+        let sticky = header.outerHeight();
+    
+        if (scroll >= sticky) {
+          header.removeClass("header-transparent");
+        } else {
+          header.addClass("header-transparent");
+        }
+      });
+    }
+    else{
+      var headerTransparent = setInterval(function(){
+        if($(".header-transparent").length){
+          $(".site-header").removeClass("header-transparent");
+          clearInterval(headerTransparent);
+        }
+      }, 1000);
+    }
+
+    if($(".section-slider").length){
+      $('.section-slider .feature-list').owlCarousel({
+        loop: false,
+        nav: false,
+        dots: true,
+        items: 1
+      });
+    }
+
+    if($(".slider-instagram").length){
+      $('.slider-instagram').owlCarousel({
+        loop: true,
+        nav: false,
+        dots: false,
+        items: 4.5,
+        margin: 30,
+        responsive : {
+          // breakpoint from 0 up
+          0 : {
+            items : 1.5,
+            margin: 10,
+            center: true
+          },
+          // breakpoint from 768 up
+          768 : {
+            items : 4.5
+          }
+        }      
+      });
+    }
+    if($(".img-product-slider").length){
+      if(window.matchMedia('(max-width: 600px)').matches){
+        $('.img-product-slider').owlCarousel({
+          loop: true,
+          nav: false,
+          dots: true,
+          items: 1
+        });
+      }
+    }
+
+    $(".img-pass").click(function (){
+      if($(".field-pass input[type=password]").length){
+        $(".field-pass input").attr("type", "text")
+      }
+      else{
+        $(".field-pass input").attr("type", "password")
+      }
+
+      $(".img-pass").toggleClass("hide")
+    })
+});

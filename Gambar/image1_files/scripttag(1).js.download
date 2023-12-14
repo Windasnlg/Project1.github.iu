@@ -1,0 +1,240 @@
+const allAboutTotalTerjual = () => {
+  $.ajax({
+    url: "https://hmns-apps.shopify-plugin.devbdd.com/index.php/custom/total__terjual",
+    type: "GET",
+    success: (data) => {
+      data = JSON.parse(data)
+  
+      let total_terjual = data.total_terjual ? parseInt(data.total_terjual) : 0;
+      
+      $(".reward-tier-a").each(function (i, value) {
+        if (parseInt($(this).attr("data-unlock")) <= total_terjual) {
+          $(this).removeClass("disabled");
+        }
+      });
+      $(".reward-tier-right").each(function (i, value) {
+        if (parseInt($(this).attr("data-unlock")) <= total_terjual) {
+          $(this).hover(
+            function () {
+              $(this).addClass("reward-unlock");
+            },
+            function () {
+              $(this).removeClass("reward-unlock");
+            }
+          );
+        } else {
+          $(this).removeAttr("href");
+          $(this).hover(
+            function () {
+              $(this).addClass("reward-lock");
+            },
+            function () {
+              $(this).removeClass("reward-lock");
+            }
+          );
+        }
+      });
+  
+      if (data.total_terjual == null) {
+        data.total_terjual = 0;
+      }
+
+      let berapaKali = 0
+      $(window).scroll(function() {
+        let distance = document.getElementById('h1-total').getBoundingClientRect().top
+        const animate = () => {
+          const value = total_terjual;
+          const initNumber = parseInt($("#h1-total").attr('data-init'))
+      
+          const time = value / 2;
+  
+          if(initNumber < value) {
+            $("#h1-total").text(Math.ceil(initNumber + time))
+            $("#h1-total").attr('data-init', initNumber + 100)
+            // $("#h1-total").attr('data-init', initNumber + 1)
+            setTimeout(animate, 1);
+          }else{
+            $("#h1-total").text(value);
+          }
+        }
+
+        if (Math.floor(distance) <= 250 && Math.floor(distance) >= 0) {
+          if (berapaKali == 0) {
+            animate()
+            berapaKali += 1
+          }
+        } 
+      })
+  
+      $("#h1-total").text(`${data.total_terjual}`);
+  
+      let arrayTierUnlock = [];
+  
+      let prev = 0;
+      $(".this-reward").each(function (i, v) {
+        let dataUnlock = parseInt($(this).attr("data-unlock-p"));
+        arrayTierUnlock = [
+          ...arrayTierUnlock,
+          parseInt($(this).attr("data-unlock-p")),
+        ];
+  
+        let bottlesLeft = dataUnlock - data.total_terjual;
+        if (bottlesLeft < 0) {
+          bottlesLeft = 0;
+        }
+  
+        $(this)
+          .children(".this-reward__obj-container")
+          .children(".this-reward__objective")
+          .text(`${bottlesLeft} Bottles Left`);
+  
+        if (data.total_terjual >= dataUnlock) {
+          $(this).children(".this-reward__next").text("Complete Reward");
+          prev = dataUnlock;
+        }
+  
+        $(this).parent().parent().hide();
+      });
+
+      $(".new-this-reward").each(function (i, v) {
+        let dataUnlock = parseInt($(this).attr("data-unlock-p"));
+        arrayTierUnlock = [
+          ...arrayTierUnlock,
+          parseInt($(this).attr("data-unlock-p")),
+        ];
+  
+        let bottlesLeft = dataUnlock - data.total_terjual;
+        if (bottlesLeft < 0) {
+          bottlesLeft = 0;
+        }
+  
+        $(this)
+        .children(".new-total-count")
+        .children(".total-sold")
+          .text(`${total_terjual}`);
+  
+        if (data.total_terjual >= dataUnlock) {
+          $(this).children(".new-total-count").text("Complete Reward");
+          prev = dataUnlock;
+        }
+  
+        $(this).parent().parent().hide();
+      });
+  
+      let indexUnlocked = arrayTierUnlock.findIndex(
+        (element) => element == prev
+      );
+      let nextIndexUnlocked = indexUnlocked + 1;
+  
+      if (nextIndexUnlocked >= arrayTierUnlock.length - 1) {
+        nextIndexUnlocked = arrayTierUnlock.length - 1;
+      }
+      arrayTierUnlock = arrayTierUnlock.filter((item, i) => {
+        if (i <= nextIndexUnlocked) {
+          return item;
+        }
+      });
+
+      // arrayTierUnlock = [...arrayTierUnlock, 5000]
+      // console.log({arrayTierUnlock});
+  
+      $(".this-reward").each(function (i, v) {
+        let dataUnlock = parseInt($(this).attr("data-unlock-p"));
+        console.log(dataUnlock);
+        arrayTierUnlock.forEach((item) => {
+          if (item == dataUnlock) {
+            $(this).parent().parent().show();
+          }
+        });
+      });
+    },
+  });
+}
+
+if (window.location.href.includes("/pages/ihp")) {
+  allAboutTotalTerjual()
+
+  // setInterval(() => {
+  //   allAboutTotalTerjual()
+  // }, 1000);
+
+  $.ajax({
+    url: "https://hmns-apps.shopify-plugin.devbdd.com/index.php/custom/order__cust",
+    type: "GET",
+    success: (data) => {
+      data = JSON.parse(data);
+      i = 0;
+      data = data.map((e, i) => {
+        return `<div class="top__list-item">
+                  <div class="top__rounded">
+                    <h4>${i + 1}</h4> 
+                  </div>
+                  <div class="top__content">
+                    <p>${e.nama}</p>
+                    <div class="line-between"><img src="https://cdn.shopify.com/s/files/1/0249/6341/6160/files/line.png?v=1636094045"></div>
+                    <p>${e.order_total} Bottles</p>
+                    <div class="line-between-2"><img src="https://cdn.shopify.com/s/files/1/0249/6341/6160/files/line.png?v=1636094045"></div>
+                  </div>
+              </div>`;
+      });
+      $("#top__array").append(data.join("\n"));
+    },
+  });
+
+  $.ajax({
+    url: "https://hmns-apps.shopify-plugin.devbdd.com/index.php/custom/order__custDate",
+    type: "GET",
+    success: (data) => {
+      data = JSON.parse(data);
+      data = data.map((e) => {
+        return `<div class="recent__list-item">
+		          <p><b>${e.order_date}</b></p> 
+		          <div class="recent__content">
+		            <p>${e.nama}</p>
+		            <p>${e.order_total} Bottles</p>
+		          </div>
+		      	</div>`;
+      });
+      $("#recent__array").append(data.join("\n"));
+    },
+  });
+
+  // $.ajax({
+  //   url: "https://hmns-apps.shopify-plugin.devbdd.com/index.php/custom/total__terjual",
+  //   type: "GET",
+  //   success: (data) => {
+  //     data = JSON.parse(data);
+  //     total_terjual = parseInt(data.total_terjual);
+  //     console.log(total_terjual);
+  //     $(".reward-tier-a").each(function (i, value) {
+  //       console.log(parseInt($(this).attr("data-unlock")));
+  //       if (parseInt($(this).attr("data-unlock")) <= total_terjual) {
+  //         $(this).removeClass("disabled");
+  //       }
+  //     });
+  //     $(".reward-tier-right").each(function (i, value) {
+  //       console.log(parseInt($(this).attr("data-unlock")));
+  //       if (parseInt($(this).attr("data-unlock")) <= total_terjual) {
+  //         $(this).hover(
+  //           function () {
+  //             $(this).addClass("reward-unlock");
+  //           },
+  //           function () {
+  //             $(this).removeClass("reward-unlock");
+  //           }
+  //         );
+  //       } else {
+  //         $(this).removeAttr("href");
+  //         $(this).hover(
+  //           function () {
+  //             $(this).addClass("reward-lock");
+  //           },
+  //           function () {
+  //             $(this).removeClass("reward-lock");
+  //           }
+  //         );
+  //       }
+  //     });
+  //   },
+  // });
+}
